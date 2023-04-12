@@ -65,6 +65,7 @@ class _MyHomePageState extends State<MyHomePage> {
       }
       everyTempo.reset();
     }
+    fullDuration.reset();
     fullDuration.stop();
     everyTempo.stop();
   }
