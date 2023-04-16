@@ -1,14 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:audioplayers/audioplayers.dart';
-import 'package:flutter/services.dart';
+import 'dart:async';
 
 void main() {
   runApp(const MyApp());
 }
 
 final player = AudioPlayer();
-final durationcounter = Stopwatch();
-final beatcounter = Stopwatch();
 
 class MyApp extends StatelessWidget {
   const MyApp({super.key});
@@ -20,125 +18,80 @@ class MyApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: const MyHomePage(
-          title: 'Flutter Demo Home Page', bpm: '60', duration: '10'),
+      home: Metronome(),
     );
   }
 }
 
-class MyHomePage extends StatefulWidget {
-  const MyHomePage(
-      {super.key,
-      required this.title,
-      required this.bpm,
-      required this.duration});
-
-  final String title;
-  final String bpm;
-  final String duration;
-
+class Metronome extends StatefulWidget {
   @override
-  State<MyHomePage> createState() => _MyHomePageState();
+  _MetronomeState createState() => _MetronomeState();
 }
 
-class _MyHomePageState extends State<MyHomePage> {
-  void beatcontrol(String action, String pduration, String pbpm) async {
-    var bpm = int.parse(pbpm);
-    var duration = int.parse(pduration);
+class _MetronomeState extends State<Metronome> {
+  Timer? _timer;
+  bool _isPlaying = false;
+  int _bpm = 120;
 
-    durationcounter.reset();
-    beatcounter.reset();
-    durationcounter.start();
-    beatcounter.start();
-
-    //TODO: find way to create beep instead of play mp3 due to delay.
-
-    await player.setSource(AssetSource('metronome_basic_sound.mp3'));
-    await player.resume();
-    while (durationcounter.elapsedMilliseconds <= 1000 * duration) {
-      if (beatcounter.elapsedMilliseconds == (60 / bpm) * 1000) {
-        await player.setSource(AssetSource('metronome_basic_sound.mp3'));
-        await player.resume();
-        beatcounter.reset();
-      }
-    }
-
-    durationcounter.reset();
-    durationcounter.stop();
-    beatcounter.stop();
+  Future<void> _playClickSound() async {
+    await player.stop();
+    await player.play(AssetSource('metronome_basic_sound.mp3'));
   }
 
-  TextEditingController contbpm = TextEditingController();
-  TextEditingController contduration = TextEditingController();
-
-  @override
-  void initState() {
-    contbpm.text = widget.bpm;
-    contduration.text = widget.duration;
-    super.initState();
+  void _startStopMetronome() {
+    if (_isPlaying) {
+      _timer?.cancel();
+    } else {
+      final int delay = (60 / _bpm * 1000).round();
+      _timer = Timer.periodic(Duration(milliseconds: delay), (timer) {
+        _playClickSound();
+      });
+    }
+    setState(() {
+      _isPlaying = !_isPlaying;
+    });
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.title),
+      appBar: AppBar(
+        title: const Text('Metronome'),
+      ),
+      body: Center(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            Text(
+              'BPM: $_bpm',
+              style: const TextStyle(fontSize: 24.0),
+            ),
+            const SizedBox(height: 24.0),
+            ElevatedButton(
+              onPressed: _startStopMetronome,
+              child: Text(_isPlaying ? 'Stop' : 'Start'),
+            ),
+            const SizedBox(height: 24.0),
+            Slider(
+              value: _bpm.toDouble(),
+              min: 60,
+              max: 240,
+              onChanged: (value) {
+                setState(() {
+                  _bpm = value.round();
+                });
+              },
+            ),
+          ],
         ),
-        body: Center(
-          child: Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: <Widget>[
-              const Text(
-                'Press this button to start the metronome:',
-              ),
-              SizedBox(
-                width: 200,
-                child: TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'Duração do metrônomo',
-                    border: OutlineInputBorder(),
-                  ),
-                  controller: contduration,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
-                  ],
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              SizedBox(
-                width: 200,
-                child: TextField(
-                  decoration: const InputDecoration(
-                    labelText: 'BPM',
-                    border: OutlineInputBorder(),
-                  ),
-                  controller: contbpm,
-                  keyboardType: TextInputType.number,
-                  inputFormatters: <TextInputFormatter>[
-                    FilteringTextInputFormatter.allow(RegExp(r'[0-9]')),
-                  ],
-                  textAlign: TextAlign.center,
-                ),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  FloatingActionButton(
-                    onPressed: () =>
-                        beatcontrol("start", contduration.text, contbpm.text),
-                    tooltip: 'Play',
-                    child: const Icon(Icons.play_arrow),
-                  ),
-                  FloatingActionButton(
-                    onPressed: () => beatcontrol("stop", "0", "0"),
-                    tooltip: 'Stop',
-                    child: const Icon(Icons.stop),
-                  ),
-                ],
-              )
-            ],
-          ),
-        ));
+      ),
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    player.dispose();
+    super.dispose();
   }
 }
