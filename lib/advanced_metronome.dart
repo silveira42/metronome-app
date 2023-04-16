@@ -24,7 +24,6 @@ class _AdvancedMetronomeState extends State<AdvancedMetronome> {
   final TextEditingController _durationController = TextEditingController();
   final TextEditingController _bpmController = TextEditingController();
 
-  Timer? _timer;
   bool _isPlaying = false;
 
   Future<void> _playClickSound() async {
@@ -32,27 +31,20 @@ class _AdvancedMetronomeState extends State<AdvancedMetronome> {
     await player.play(AssetSource('metronome_basic_sound.mp3'));
   }
 
-  void _startStopMetronome() {
-    if (_isPlaying) {
-      _timer?.cancel();
-    } else {
-      for (MetronomeSettings settings in metronomeSettings) {
-        currentDuration.reset();
+  void _startStopMetronome() async {
+    Timer? currentTimer;
+    for (MetronomeSettings settings in metronomeSettings) {
+      final int delay = (60 / settings.bpm * 1000).round();
+      currentTimer = Timer.periodic(Duration(milliseconds: delay), (timer) {
+        _playClickSound();
         currentDuration.start();
-        final int delay = (60 / settings.bpm * 1000).round();
-        _timer = Timer.periodic(Duration(milliseconds: delay), (timer) {
-          _playClickSound();
-          if ((currentDuration.elapsedMilliseconds) >=
-              (settings.duration * 1000)) {
-            print("aaa");
-            _timer?.cancel();
-          }
-        });
-      }
+      });
+      await Future.delayed(Duration(seconds: settings.duration));
+      currentDuration.stop();
+      currentDuration.reset();
+      currentTimer.cancel();
     }
-    setState(() {
-      _isPlaying = !_isPlaying;
-    });
+    setState(() {});
   }
 
   void _saveSettings(duration, bpm) {
@@ -114,7 +106,7 @@ class _AdvancedMetronomeState extends State<AdvancedMetronome> {
             const SizedBox(height: 24.0),
             ElevatedButton(
               onPressed: _startStopMetronome,
-              child: Text(_isPlaying ? 'Stop' : 'Start'),
+              child: const Text('Start'),
             ),
             const SizedBox(height: 24.0),
             ElevatedButton(
@@ -140,7 +132,6 @@ class _AdvancedMetronomeState extends State<AdvancedMetronome> {
 
   @override
   void dispose() {
-    _timer?.cancel();
     player.dispose();
     super.dispose();
   }
